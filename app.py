@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 
 st.set_page_config(page_title="Rusty’s Retirement Agent", layout="wide", page_icon="📈")
 st.title("Rusty’s CFP Retirement Planning Agent")
-st.markdown("**Conservative Monte Carlo Projections with Account-Type Separation** — Missouri tax implications noted")
+st.markdown("**Conservative Monte Carlo Projections with Separate Account Types** — Missouri tax implications noted")
 
 # Sidebar inputs
 with st.sidebar:
@@ -12,36 +12,21 @@ with st.sidebar:
     age = st.number_input("Current Age", min_value=20, max_value=100, value=55)
     retirement_age = st.number_input("Planned Retirement Age", min_value=age + 1, max_value=100, value=67)
     
-    st.header("Current Savings Allocation")
-    current_savings = st.number_input("Total Current Savings ($)", min_value=0, value=500_000, step=10_000)
+    st.header("Current Savings by Account Type")
+    taxable_current = st.number_input("Taxable Brokerage ($)", min_value=0, value=200_000, step=10_000)
+    trad_current = st.number_input("Traditional IRA/401(k) ($)", min_value=0, value=200_000, step=10_000)
+    roth_current = st.number_input("Roth IRA/401(k) ($)", min_value=0, value=100_000, step=10_000)
     
-    taxable_pct = st.slider("Taxable Brokerage (%)", 0, 100, 40)
-    trad_pct = st.slider("Traditional IRA/401(k) (%)", 0, 100, 40)
-    roth_pct = st.slider("Roth IRA/401(k) (%)", 0, 100, 20)
+    total_current_savings = taxable_current + trad_current + roth_current
+    st.info(f"**Total Current Savings: ${total_current_savings:,.0f}**")
     
-    # Normalize to 100%
-    total_pct = taxable_pct + trad_pct + roth_pct
-    if total_pct != 100:
-        st.warning(f"Allocation sums to {total_pct}%. It will be normalized.")
+    st.header("Annual Contributions by Account Type")
+    contrib_taxable = st.number_input("Annual to Taxable Brokerage ($)", min_value=0, value=6_000, step=1_000)
+    contrib_trad = st.number_input("Annual to Traditional IRA/401(k) ($)", min_value=0, value=10_000, step=1_000)
+    contrib_roth = st.number_input("Annual to Roth IRA/401(k) ($)", min_value=0, value=4_000, step=1_000)
     
-    taxable_current = current_savings * (taxable_pct / 100)
-    trad_current = current_savings * (trad_pct / 100)
-    roth_current = current_savings * (roth_pct / 100)
-    
-    st.header("Annual Contribution Allocation")
-    annual_contribution = st.number_input("Total Annual Contribution ($)", min_value=0, value=20_000, step=1_000)
-    
-    contrib_taxable_pct = st.slider("Taxable Brokerage (%)", 0, 100, 30, key="contrib_taxable")
-    contrib_trad_pct = st.slider("Traditional (%)", 0, 100, 50, key="contrib_trad")
-    contrib_roth_pct = st.slider("Roth (%)", 0, 100, 20, key="contrib_roth")
-    
-    total_contrib_pct = contrib_taxable_pct + contrib_trad_pct + contrib_roth_pct
-    if total_contrib_pct != 100:
-        st.warning(f"Contribution allocation sums to {total_contrib_pct}%. It will be normalized.")
-    
-    contrib_taxable = annual_contribution * (contrib_taxable_pct / 100)
-    contrib_trad = annual_contribution * (contrib_trad_pct / 100)
-    contrib_roth = annual_contribution * (contrib_roth_pct / 100)
+    total_annual_contribution = contrib_taxable + contrib_trad + contrib_roth
+    st.info(f"**Total Annual Contribution: ${total_annual_contribution:,.0f}**")
     
     st.subheader("Return Assumptions (Conservative)")
     mean_annual_return = st.slider("Expected Annual Real Return (%)", 0.0, 12.0, 5.5) / 100.0
@@ -123,9 +108,9 @@ if st.button("🚀 Run Monte Carlo Simulation with Account Types", type="primary
         with col2:
             st.metric("Median Final Balance", f"${median_total:,.0f}")
         with col3:
-            st.metric("10th Percentile", f"${p10_total:,.0f}")
+            st.metric("10th Percentile (Bad Case)", f"${p10_total:,.0f}")
         with col4:
-            st.metric("90th Percentile", f"${p90_total:,.0f}")
+            st.metric("90th Percentile (Good Case)", f"${p90_total:,.0f}")
         
         st.subheader("Final Balance by Account Type (Median)")
         col_a, col_b, col_c = st.columns(3)
@@ -138,7 +123,7 @@ if st.button("🚀 Run Monte Carlo Simulation with Account Types", type="primary
         
         st.subheader("Missouri Tax Notes (2026)")
         st.markdown("""
-        - **Taxable Brokerage**: Missouri has eliminated state capital gains tax → growth and withdrawals are state-tax free (federal long-term capital gains may still apply).
+        - **Taxable Brokerage**: Missouri has eliminated state capital gains tax for individuals → growth and qualified withdrawals are state-tax free (federal long-term capital gains may still apply).
         - **Traditional IRA/401(k)**: Withdrawals taxed as ordinary income at Missouri state rates (up to 4.7%).
         - **Roth IRA/401(k)**: Qualified withdrawals are completely tax-free at both federal and Missouri state level.
         """)
@@ -146,9 +131,9 @@ if st.button("🚀 Run Monte Carlo Simulation with Account Types", type="primary
         st.subheader("Portfolio Projection (Fan Chart)")
         st.plotly_chart(fig, width="stretch")
         
-        st.caption("**Important**: This is for educational purposes only. Missouri tax rules can change. Always consult a licensed CFP or tax professional for your specific situation in Missouri.")
+        st.caption("**Important**: This is for educational/illustrative purposes only. Missouri tax rules can change. Consult a licensed CFP or tax professional for your specific situation.")
 
 else:
-    st.info("👆 Adjust inputs and allocations in the sidebar, then click the button to run the simulation.")
+    st.info("👆 Enter your savings and contribution amounts by account type in the sidebar, then click the button above to run the simulation.")
 
 st.caption("Missouri-focused retirement planning tool | GitHub: russellrichards55-lang/cfp-retirement-agent")
