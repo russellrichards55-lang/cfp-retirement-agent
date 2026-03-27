@@ -2,60 +2,67 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-# ... add any other imports you use (scipy, etc.)
 
 st.set_page_config(page_title="Retirement Planning Agent", layout="wide")
 st.title("Rusty’s CFP Retirement Planning Agent")
-st.markdown("**Conservative Monte Carlo + Deterministic Projections** — Topeka, KS focus")
+st.markdown("**Conservative Monte Carlo + Deterministic Projections**")
 
-# Sidebar for all inputs (keep this outside the button)
+# Sidebar inputs (keep all your existing ones here)
 with st.sidebar:
-    st.header("Your Retirement Inputs")
-    age = st.number_input("Current Age", min_value=20, max_value=100, value=55)
-    retirement_age = st.number_input("Planned Retirement Age", min_value=age+1, max_value=100, value=67)
-    current_savings = st.number_input("Current Savings ($)", min_value=0, value=500000, step=10000)
-    annual_contribution = st.number_input("Annual Contribution ($)", min_value=0, value=20000, step=1000)
-    # Add your other inputs here: expected_real_return, volatility, inflation, etc.
-    years_to_retirement = retirement_age - age
+    st.header("Your Inputs")
+    age = st.number_input("Current Age", 20, 100, 55)
+    retirement_age = st.number_input("Retirement Age", age+1, 100, 67)
+    current_savings = st.number_input("Current Savings ($)", 0, 5000000, 500000, step=10000)
+    annual_contribution = st.number_input("Annual Contribution ($)", 0, 100000, 20000, step=1000)
+    # Add your other inputs (expected return, volatility, etc.)
 
-# Main content - only run heavy stuff when button is clicked
 if st.button("🚀 Run Monte Carlo Simulation & Projections", type="primary"):
-    with st.spinner("Running simulations... This may take 10–30 seconds depending on number of runs"):
+    with st.spinner("Running simulations..."):
         
-        # ←←← PUT YOUR ENTIRE MONTE CARLO + DETERMINISTIC CODE HERE ←←←
-        # Example skeleton (replace with your actual logic):
+        # === YOUR CALCULATIONS GO HERE ===
+        # Replace this section with your actual Monte Carlo / deterministic logic
+        years = retirement_age - age
+        num_simulations = 2000  # start smaller for faster testing
         
-        num_simulations = 5000   # or use a slider for this
-        # ... your numpy random returns paths, portfolio projection loop, success rate calc, etc. ...
+        # Simple example deterministic projection (replace with your real code)
+        balances = [current_savings]
+        for y in range(years):
+            new_balance = balances[-1] * 1.05 + annual_contribution  # 5% growth example
+            balances.append(new_balance)
         
-        # After calculations, create results:
-        success_rate = ...  # your calculated value (e.g. 85.3)
-        median_final_balance = ...
-        # ... other metrics, percentiles, etc.
+        years_list = list(range(age, retirement_age + 1))
         
-        # Create charts
-        fig_projection = go.Figure(...)   # your Plotly code
-        # ... more figures if needed
+        # === CREATE ACTUAL PLOTLY FIGURE (no more ...) ===
+        fig_projection = go.Figure()
+        fig_projection.add_trace(go.Scatter(
+            x=years_list,
+            y=balances,
+            mode='lines+markers',
+            name='Projected Balance',
+            line=dict(color='blue', width=3)
+        ))
+        fig_projection.update_layout(
+            title="Retirement Portfolio Projection (Example)",
+            xaxis_title="Age",
+            yaxis_title="Portfolio Balance ($)",
+            template="plotly_white"
+        )
         
-        # === NOW DISPLAY EVERYTHING ===
+        # === DISPLAY RESULTS ===
         st.success("✅ Simulation complete!")
         
-        col1, col2, col3 = st.columns(3)
+        col1, col2 = st.columns(2)
         with col1:
-            st.metric("Success Rate (Portfolio lasts to age 95)", f"{success_rate:.1f}%")
+            st.metric("Projected Balance at Retirement", f"${balances[-1]:,.0f}")
         with col2:
-            st.metric("Median Final Balance", f"${median_final_balance:,.0f}")
-        # add more metrics...
+            st.metric("Years to Retirement", years)
         
-        st.subheader("Portfolio Projection Charts")
+        st.subheader("Projection Chart")
         st.plotly_chart(fig_projection, width="stretch")   # fixed deprecation warning
         
-        # Optional: show summary table
-        # st.dataframe(some_results_df)
-        
-        st.caption("Note: Results based on conservative assumptions (e.g., sequence risk, 3% inflation).")
+        st.info("Replace the example code above with your full Monte Carlo logic (random paths, success rate, percentiles, etc.).")
 
 else:
-    st.info("👆 Fill in the sidebar inputs, then click the button above to run your personalized retirement projections.")
+    st.info("👆 Adjust inputs in the sidebar, then click the button to run projections.")
 
-st.caption("Iterative CFP-style tool | Always verify with a licensed fiduciary advisor.")
+st.caption("Conservative retirement tool | GitHub: russellrichards55-lang/cfp-retirement-agent")
