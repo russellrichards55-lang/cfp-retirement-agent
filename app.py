@@ -36,7 +36,7 @@ with st.sidebar:
     num_simulations = st.slider("Number of Monte Carlo Simulations", 1000, 10000, 5000, step=1000)
     years_to_retirement = retirement_age - age
 
-# Main simulation
+# Main simulation - only runs when button is clicked
 if st.button("🚀 Run Monte Carlo Simulation with Account Types", type="primary"):
     with st.spinner(f"Running {num_simulations:,} simulations across account types..."):
         np.random.seed(42)
