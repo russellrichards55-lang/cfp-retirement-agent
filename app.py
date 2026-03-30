@@ -5,7 +5,6 @@ st.set_page_config(page_title="Rusty’s CFP Retirement Agent", layout="wide", p
 st.title("Rusty’s CFP Retirement Planning Agent")
 st.markdown("**Missouri-Focused Analysis & Actionable Recommendations**")
 
-# Sidebar inputs
 with st.sidebar:
     st.header("Personal Details")
     current_age = st.number_input("Current Age", min_value=20, max_value=100, value=55)
@@ -37,7 +36,9 @@ with st.sidebar:
     inflation_rate = st.slider("Inflation Rate (%)", 1.0, 5.0, 3.0) / 100.0
     
     st.subheader("Retirement Spending")
-    annual_spending_goal = st.number_input("Desired Annual Spending (Today's $)", min_value=20_000, value=60_000, step=5_000)
+    annual_spending_goal = st.number_input("Desired Annual Spending in **Today's Dollars**", 
+                                           min_value=20_000, value=60_000, step=5_000,
+                                           help="This is what you want in the first year of retirement, adjusted for inflation each year after.")
     
     st.subheader("Strategies")
     withdrawal_strategy = st.selectbox("Withdrawal Strategy", ["Fixed Real Spending", "4% Rule Variant", "Guardrails"])
@@ -74,13 +75,15 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
                 bal_re = bal_re * (1 + re_appreciation) + re_rental_income
                 bal_pm = bal_pm * (1 + ret_pm)
             
-            # Withdrawal phase
-            current_spending = float(annual_spending_goal)
+            # Withdrawal phase with proper inflation adjustment
+            current_spending = float(annual_spending_goal)   # First year of retirement
             ss_annual = float(ss_monthly_benefit * 12)
+            success = True
             
             for yr in range(years_in_retirement):
                 current_age_in_ret = desired_retirement_age + yr
                 
+                # Apply chosen withdrawal strategy to the inflation-adjusted spending
                 if withdrawal_strategy == "Fixed Real Spending":
                     wd = current_spending
                 elif withdrawal_strategy == "4% Rule Variant":
@@ -93,15 +96,18 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
                     elif total_balance > annual_spending_goal * 30:
                         wd *= 1.1
                 
+                # Social Security offset
                 if current_age_in_ret >= ss_claim_age:
                     wd = max(0, wd - ss_annual)
                 
+                # Inflate spending for next year
                 current_spending *= (1 + inflation_rate)
                 
                 total = bal_taxable + bal_trad + bal_roth + bal_re + bal_pm
                 if total <= 0:
                     break
                 
+                # Proportional withdrawal
                 w_taxable = wd * (bal_taxable / total)
                 w_trad = wd * (bal_trad / total)
                 w_roth = wd * (bal_roth / total)
@@ -114,6 +120,7 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
                 bal_re -= w_re
                 bal_pm -= w_pm
                 
+                # Growth
                 ret_equity = np.random.normal(equity_return, equity_vol)
                 ret_pm = np.random.normal(pm_return, pm_vol)
                 bal_taxable *= (1 + ret_equity)
@@ -143,37 +150,19 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
             st.metric("Median Final Balance", f"${median_final:,.0f}")
 
         st.subheader("📋 CFP Analysis & Recommendations")
+        st.markdown(f"**Goal**: Retire at age **{desired_retirement_age}** with **${annual_spending_goal:,.0f}** in today's dollars, increasing with inflation each year.")
         
-        st.markdown(f"**Goal**: Retire at age **{desired_retirement_age}** with **${annual_spending_goal:,.0f}** annual spending.")
-
         if success_rate >= 80:
             st.success("✅ Strong probability of success.")
-            st.markdown("- Your plan looks solid with current contributions and strategies.")
-            if ss_claim_age < 70:
-                st.markdown("- Delaying Social Security to age 70 would further strengthen the plan.")
-        
         elif success_rate >= 60:
             st.warning("⚠️ Moderate success probability.")
-            st.markdown("**Recommended Actions:**")
-            st.markdown("- Increase Roth contributions")
-            st.markdown("- Consider Roth conversion ladder")
-            if ss_claim_age < 70:
-                st.markdown("- Delay Social Security to age 70 to reduce portfolio drawdown")
-        
         else:
-            st.error("❌ Low success probability — significant changes needed.")
-            st.markdown("**Priority Actions Right Now:**")
-            st.markdown("- **Lower annual spending goal** (try reducing by $10,000–$20,000)")
-            st.markdown("- **Increase annual contributions** aggressively (especially to Roth)")
-            st.markdown("- Consider delaying retirement by 2–5 years")
-            st.markdown("- Explore part-time income or downsizing real estate in early retirement")
-
+            st.error("❌ Low success probability — changes recommended.")
+        
         st.subheader("Missouri Tax Notes")
-        st.markdown("""
-        - Social Security is **not taxed** in Missouri.
-        - Traditional withdrawals are taxed as ordinary income (up to 4.7%).
-        - Roth withdrawals are completely tax-free.
-        """)
+        st.markdown("- Social Security is **not taxed** in Missouri.")
+        st.markdown("- Traditional withdrawals taxed as ordinary income (up to 4.7%).")
+        st.markdown("- Roth withdrawals are tax-free.")
         
         st.caption("Educational modeling only. Consult a licensed CFP and tax professional.")
 
