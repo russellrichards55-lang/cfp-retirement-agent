@@ -4,9 +4,9 @@ import plotly.graph_objects as go
 
 st.set_page_config(page_title="Rusty’s CFP Retirement Agent", layout="wide", page_icon="📈")
 st.title("Rusty’s CFP Retirement Planning Agent")
-st.markdown("**Missouri-Focused Analysis & Recommendations** — Now with Post-Retirement Net Worth Drawdown Chart")
+st.markdown("**Missouri-Focused Analysis & Recommendations** — With Post-Retirement Drawdown Chart")
 
-# Sidebar inputs
+# Sidebar inputs (same as before)
 with st.sidebar:
     st.header("Personal Details")
     current_age = st.number_input("Current Age", min_value=20, max_value=100, value=55)
@@ -55,10 +55,9 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
         years_in_retirement = life_expectancy - desired_retirement_age
         
         success_count = 0
-        median_path = None
         all_paths = []
         
-        for sim in range(num_simulations):
+        for _ in range(num_simulations):
             bal_taxable = taxable_current
             bal_trad = trad_current
             bal_roth = roth_current
@@ -67,7 +66,7 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
             
             path = [bal_taxable + bal_trad + bal_roth + bal_re + bal_pm]
             
-            # Accumulation
+            # Accumulation phase
             for _ in range(years_to_retire):
                 ret_equity = np.random.normal(equity_return, equity_vol)
                 ret_pm = np.random.normal(pm_return, pm_vol)
@@ -80,7 +79,7 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
                 
                 path.append(bal_taxable + bal_trad + bal_roth + bal_re + bal_pm)
             
-            # Withdrawal phase with strategy + SS
+            # Withdrawal phase
             current_spending = annual_spending_goal
             ss_annual = ss_monthly_benefit * 12
             success = True
@@ -88,7 +87,6 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
             for yr in range(years_in_retirement):
                 current_age_in_ret = desired_retirement_age + yr
                 
-                # Withdrawal amount based on strategy
                 if withdrawal_strategy == "Fixed Real Spending":
                     wd = current_spending
                 elif withdrawal_strategy == "4% Rule Variant":
@@ -100,13 +98,11 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
                     elif path[-1] > annual_spending_goal * 30:
                         wd *= 1.1
                 
-                # SS offset
                 if current_age_in_ret >= ss_claim_age:
                     wd = max(0, wd - ss_annual)
                 
                 current_spending *= (1 + inflation_rate)
                 
-                # Proportional withdrawal
                 total = bal_taxable + bal_trad + bal_roth + bal_re + bal_pm
                 if total <= 0:
                     success = False
@@ -124,7 +120,6 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
                 bal_re -= w_re
                 bal_pm -= w_pm
                 
-                # Growth
                 ret_equity = np.random.normal(equity_return, equity_vol)
                 ret_pm = np.random.normal(pm_return, pm_vol)
                 bal_taxable *= (1 + ret_equity)
@@ -144,9 +139,14 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
                 success_count += 1
         
         success_rate = (success_count / num_simulations) * 100
-        median_path = np.median(all_paths, axis=0)
         
-        # Ages for x-axis
+        # Safe median calculation
+        if all_paths:
+            median_path = np.median(all_paths, axis=0)
+        else:
+            median_path = np.zeros(years_to_retire + years_in_retirement + 1)
+            st.error("All simulations failed — spending goal is likely too high for current savings/contributions.")
+        
         ages = list(range(current_age, current_age + len(median_path)))
         
         # Results
@@ -160,8 +160,8 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
         with col3:
             st.metric("Target Retirement Age", desired_retirement_age)
         
-        # New Drawdown Chart
-        st.subheader("Net Worth Drawdown Chart (Post-Retirement Focus)")
+        # Drawdown Chart
+        st.subheader("Net Worth Drawdown Chart (Retirement Onward)")
         fig_drawdown = go.Figure()
         fig_drawdown.add_trace(go.Scatter(
             x=ages[years_to_retire:],
@@ -171,40 +171,25 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
             line=dict(color='blue', width=3)
         ))
         fig_drawdown.update_layout(
-            title="Portfolio Net Worth Over Time (Retirement Onward)",
+            title="Portfolio Net Worth Over Time (Post-Retirement)",
             xaxis_title="Age",
             yaxis_title="Net Worth ($)",
-            template="plotly_white",
-            hovermode="x unified"
+            template="plotly_white"
         )
         st.plotly_chart(fig_drawdown, width="stretch")
         
         st.subheader("📋 CFP Analysis & Recommendations")
-        st.markdown(f"**Strategy**: {withdrawal_strategy} + SS at age {ss_claim_age}")
-        
-        if success_rate >= 80:
-            st.success("✅ Strong probability of success")
-        elif success_rate >= 60:
-            st.warning("⚠️ Moderate success probability")
+        if success_rate < 30:
+            st.error("Spending goal appears too aggressive for your current assets and contributions.")
+            st.markdown("**Immediate Actions:** Reduce desired spending, increase contributions significantly, delay retirement, or lower spending in early retirement years.")
+        elif success_rate >= 80:
+            st.success("Strong plan")
         else:
-            st.error("❌ Low success probability — adjustments recommended")
+            st.warning("Moderate success probability")
         
-        st.markdown("**Key Recommendations:**")
-        if ss_claim_age < 70:
-            st.markdown("- Consider delaying Social Security to age 70 to reduce portfolio drawdown.")
-        if withdrawal_strategy == "Guardrails":
-            st.markdown("- Guardrails strategy helps protect against sequence risk.")
-        if trad_current > 0:
-            st.markdown("- Roth conversion ladder may be beneficial before age 59½.")
-        
-        st.subheader("Missouri Tax Notes")
-        st.markdown("- Social Security benefits are **not taxed** in Missouri.")
-        st.markdown("- Traditional withdrawals are taxed as ordinary income (up to 4.7%).")
-        st.markdown("- Roth withdrawals are tax-free.")
-        
-        st.caption("Educational tool only. Consult a licensed CFP and tax advisor.")
+        st.caption("Educational modeling only. Consult a licensed CFP and tax professional.")
 
 else:
-    st.info("👆 Fill in all inputs and select strategies, then click the button above.")
+    st.info("👆 Fill in your numbers and click the button above.")
 
 st.caption("Missouri-focused retirement planning tool | GitHub: russellrichards55-lang/cfp-retirement-agent")
