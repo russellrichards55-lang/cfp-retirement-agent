@@ -61,6 +61,10 @@ with st.sidebar:
     num_simulations = st.slider("Number of Monte Carlo Simulations", 1000, 8000, 1500, step=500)
 
 if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
+    # Clear chat history every time a new simulation is run
+    if "chat_history" in st.session_state:
+        st.session_state.chat_history = []
+    
     with st.spinner(f"Running {num_simulations:,} simulations..."):
         np.random.seed(42)
         
@@ -188,9 +192,9 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
         st.markdown("- Roth withdrawals are tax-free.")
         st.markdown("- Social Security is not taxed in Missouri.")
 
-# ==================== IMPROVED GROK CHATBOT ====================
+# ==================== GROK CHATBOT ====================
 st.subheader("💬 Ask Grok - Your Personal CFP Assistant")
-st.caption("Run a simulation first, then ask questions about your plan, Roth conversions, real estate, taxes, etc.")
+st.caption("The chat clears automatically every time you run a new simulation.")
 
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
@@ -221,12 +225,12 @@ You are reviewing a client's retirement plan. Here are the key facts:
 - Success rate from Monte Carlo: {results.get('success_rate'):.1f}%
 - Median final balance: ${results.get('median_final'):,.0f}
 - Withdrawal strategy: {results.get('withdrawal_strategy')}
-- Social Security claiming age: {results.get('ss_claim_age')}
-- Traditional IRA/401(k) balance: ${results.get('trad_current'):,.0f}
-- Real estate value: ${results.get('re_value'):,.0f} ({results.get('re_pct', 0)}% of total portfolio)
+- SS claiming age: {results.get('ss_claim_age')}
+- Traditional balance: ${results.get('trad_current'):,.0f}
+- Real estate value: ${results.get('re_value'):,.0f} ({results.get('re_pct', 0)}% of portfolio)
 - Assumed federal tax rate on Traditional withdrawals: {results.get('federal_tax_rate')}% 
 
-Provide clear, conservative, actionable CFP-style advice. Be direct, prioritize tax efficiency, risk management, and sequence of returns risk. Suggest specific next steps with rough priorities or dollar amounts where helpful.
+Provide clear, conservative, actionable CFP-style advice. Be direct, prioritize tax efficiency, risk management, and sequence of returns risk. Suggest specific next steps.
 """
 
                     response = client.chat.completions.create(
@@ -244,4 +248,4 @@ Provide clear, conservative, actionable CFP-style advice. Be direct, prioritize 
                 except Exception as e:
                     st.error(f"Error calling Grok: {str(e)}")
 
-st.caption("The chatbot has full context of your latest simulation results and gives CFP-style advice.")
+st.caption("Chat history clears automatically when you run a new simulation.")
