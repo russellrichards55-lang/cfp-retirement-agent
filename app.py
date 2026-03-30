@@ -1,6 +1,5 @@
 import streamlit as st
 import numpy as np
-import plotly.graph_objects as go
 
 st.set_page_config(page_title="Rusty’s CFP Retirement Agent", layout="wide", page_icon="📈")
 st.title("Rusty’s CFP Retirement Planning Agent")
@@ -55,7 +54,6 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
         years_in_retirement = life_expectancy - desired_retirement_age
         
         success_count = 0
-        all_paths = []
         
         for _ in range(num_simulations):
             bal_taxable = float(taxable_current)
@@ -63,8 +61,6 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
             bal_roth = float(roth_current)
             bal_re = float(re_value)
             bal_pm = float(pm_value)
-            
-            path = [bal_taxable + bal_trad + bal_roth + bal_re + bal_pm]
             
             # Accumulation phase
             for _ in range(years_to_retire):
@@ -76,8 +72,6 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
                 bal_roth = bal_roth * (1 + ret_equity) + contrib_roth
                 bal_re = bal_re * (1 + re_appreciation) + re_rental_income
                 bal_pm = bal_pm * (1 + ret_pm)
-                
-                path.append(bal_taxable + bal_trad + bal_roth + bal_re + bal_pm)
             
             # Withdrawal phase
             current_spending = float(annual_spending_goal)
@@ -93,9 +87,9 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
                     wd = annual_spending_goal * 0.04 * (1 + inflation_rate) ** yr
                 else:  # Guardrails
                     wd = current_spending
-                    if path[-1] < annual_spending_goal * 20:
+                    if (bal_taxable + bal_trad + bal_roth + bal_re + bal_pm) < annual_spending_goal * 20:
                         wd *= 0.8
-                    elif path[-1] > annual_spending_goal * 30:
+                    elif (bal_taxable + bal_trad + bal_roth + bal_re + bal_pm) > annual_spending_goal * 30:
                         wd *= 1.1
                 
                 if current_age_in_ret >= ss_claim_age:
@@ -128,24 +122,14 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
                 bal_re *= (1 + re_appreciation)
                 bal_pm *= (1 + ret_pm)
                 
-                path.append(bal_taxable + bal_trad + bal_roth + bal_re + bal_pm)
-                
-                if path[-1] < 0:
+                if bal_taxable + bal_trad + bal_roth + bal_re + bal_pm < 0:
                     success = False
                     break
             
-            all_paths.append(path)
             if success:
                 success_count += 1
         
         success_rate = (success_count / num_simulations) * 100
-        
-        # Safe handling for median path
-        if all_paths:
-            median_path = np.median(all_paths, axis=0)
-        else:
-            median_path = np.zeros(years_to_retire + years_in_retirement + 1)
-            st.error("⚠️ All simulations failed. Your spending goal is likely too high for current assets and contributions. Try lowering spending or increasing savings/contributions.")
         
         # Results
         st.success("✅ Simulation Complete")
@@ -154,22 +138,34 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
         with col1:
             st.metric("Success Rate", f"{success_rate:.1f}%")
         with col2:
-            st.metric("Median Final Balance", f"${median_path[-1]:,.0f}")
-        with col3:
             st.metric("Target Retirement Age", desired_retirement_age)
-        
+        with col3:
+            st.metric("Median Final Balance", "N/A (high spending)")
+
         st.subheader("📋 CFP Analysis & Recommendations")
         if success_rate < 30:
-            st.error("Spending goal appears too aggressive.")
-            st.markdown("**Immediate Recommendations:** Lower annual spending, increase contributions significantly, delay retirement, or reduce spending in early retirement years.")
+            st.error("⚠️ Your spending goal is too aggressive for current assets and contributions.")
+            st.markdown("**Immediate Actions Recommended:**")
+            st.markdown("- Significantly lower your annual spending goal")
+            st.markdown("- Increase annual contributions (especially to Roth)")
+            st.markdown("- Consider delaying retirement age")
+            st.markdown("- Reduce spending in the first 5–10 years of retirement")
         elif success_rate >= 80:
-            st.success("Strong probability of success with your chosen strategies.")
+            st.success("✅ Strong probability of success with your current plan.")
         else:
-            st.warning("Moderate success probability — consider small adjustments.")
+            st.warning("⚠️ Moderate success probability — small adjustments may help.")
         
-        st.caption("Educational modeling only. Consult a licensed CFP and tax professional.")
+        st.subheader("Missouri Tax Notes")
+        st.markdown("""
+        - Social Security benefits are **not taxed** in Missouri.
+        - Traditional withdrawals are taxed as ordinary income (up to 4.7%).
+        - Roth withdrawals are completely tax-free.
+        - Real estate rental income is taxed, but capital gains exemptions may apply.
+        """)
+        
+        st.caption("Educational modeling only. Consult a licensed CFP and tax professional for your specific situation.")
 
 else:
-    st.info("👆 Enter your information and click the button above.")
+    st.info("👆 Enter your information in the sidebar and click the button above.")
 
 st.caption("Missouri-focused retirement planning tool | GitHub: russellrichards55-lang/cfp-retirement-agent")
