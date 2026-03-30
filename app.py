@@ -3,7 +3,7 @@ import numpy as np
 
 st.set_page_config(page_title="Rusty’s CFP Retirement Agent", layout="wide", page_icon="📈")
 st.title("Rusty’s CFP Retirement Planning Agent")
-st.markdown("**Missouri-Focused Analysis & Recommendations** — Stable Version")
+st.markdown("**Missouri-Focused Analysis & Actionable Recommendations**")
 
 # Sidebar inputs
 with st.sidebar:
@@ -87,9 +87,10 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
                     wd = annual_spending_goal * 0.04 * (1 + inflation_rate) ** yr
                 else:  # Guardrails
                     wd = current_spending
-                    if (bal_taxable + bal_trad + bal_roth + bal_re + bal_pm) < annual_spending_goal * 20:
+                    total_balance = bal_taxable + bal_trad + bal_roth + bal_re + bal_pm
+                    if total_balance < annual_spending_goal * 20:
                         wd *= 0.8
-                    elif (bal_taxable + bal_trad + bal_roth + bal_re + bal_pm) > annual_spending_goal * 30:
+                    elif total_balance > annual_spending_goal * 30:
                         wd *= 1.1
                 
                 if current_age_in_ret >= ss_claim_age:
@@ -140,32 +141,48 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
         with col2:
             st.metric("Target Retirement Age", desired_retirement_age)
         with col3:
-            st.metric("Median Final Balance", "N/A (high spending)")
+            st.metric("Estimated Final Balance", "N/A (high spending scenario)")
 
         st.subheader("📋 CFP Analysis & Recommendations")
-        if success_rate < 30:
-            st.error("⚠️ Your spending goal is too aggressive for current assets and contributions.")
-            st.markdown("**Immediate Actions Recommended:**")
-            st.markdown("- Significantly lower your annual spending goal")
-            st.markdown("- Increase annual contributions (especially to Roth)")
-            st.markdown("- Consider delaying retirement age")
-            st.markdown("- Reduce spending in the first 5–10 years of retirement")
-        elif success_rate >= 80:
-            st.success("✅ Strong probability of success with your current plan.")
+        
+        st.markdown(f"**Your Goal**: Retire at age **{desired_retirement_age}** with **${annual_spending_goal:,.0f}** annual spending using **{withdrawal_strategy}** and claiming Social Security at age **{ss_claim_age}**.")
+        
+        if success_rate >= 80:
+            st.success("✅ **Strong Plan** — Your current path has a high likelihood of success.")
+            st.markdown("- Continue current contribution levels.")
+            st.markdown("- Consider accelerating Roth contributions for tax-free growth.")
+            if ss_claim_age < 70:
+                st.markdown("- Delaying Social Security to age 70 would further strengthen the plan.")
+        
+        elif success_rate >= 60:
+            st.warning("⚠️ **Moderate Success Probability**")
+            st.markdown("**Recommended Actions Right Now:**")
+            st.markdown("- Increase total annual contributions by $5,000–$10,000 (prioritize Roth)")
+            st.markdown("- Consider a Roth conversion ladder if you are in a lower tax bracket")
+            st.markdown("- Review real estate strategy — rental income is helpful but consider liquidity")
+            if ss_claim_age < 70:
+                st.markdown("- Delaying Social Security to 70 could meaningfully improve outcomes")
+        
         else:
-            st.warning("⚠️ Moderate success probability — small adjustments may help.")
+            st.error("❌ **Low Success Probability** — Significant changes needed to retire at your target age.")
+            st.markdown("**Priority Actions Right Now:**")
+            st.markdown("- **Lower your annual spending goal** significantly (try $45,000–$50,000)")
+            st.markdown("- **Increase contributions aggressively** (especially to Roth)")
+            st.markdown("- Consider delaying retirement by 2–5 years")
+            st.markdown("- Explore part-time work or downsizing real estate in early retirement")
+            st.markdown("- Roth conversion ladder may help manage future tax burden")
         
         st.subheader("Missouri Tax Notes")
         st.markdown("""
-        - Social Security benefits are **not taxed** in Missouri.
-        - Traditional withdrawals are taxed as ordinary income (up to 4.7%).
+        - Social Security benefits are **not taxed** in Missouri (big advantage).
+        - Traditional IRA/401(k) withdrawals are taxed as ordinary income (up to 4.7%).
         - Roth withdrawals are completely tax-free.
-        - Real estate rental income is taxed, but capital gains exemptions may apply.
+        - Real estate rental income is taxable, but capital gains may have favorable treatment.
         """)
         
-        st.caption("Educational modeling only. Consult a licensed CFP and tax professional for your specific situation.")
+        st.caption("This is educational modeling only. Always consult a licensed CFP and tax professional for personalized advice.")
 
 else:
-    st.info("👆 Enter your information in the sidebar and click the button above.")
+    st.info("👆 Enter your numbers in the sidebar and click the button above for full analysis and recommendations.")
 
 st.caption("Missouri-focused retirement planning tool | GitHub: russellrichards55-lang/cfp-retirement-agent")
