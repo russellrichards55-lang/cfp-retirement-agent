@@ -1,9 +1,16 @@
 import streamlit as st
 import numpy as np
+from openai import OpenAI
 
 st.set_page_config(page_title="Rusty’s CFP Retirement Agent", layout="wide", page_icon="📈")
 st.title("Rusty’s CFP Retirement Planning Agent")
 st.markdown("**Missouri-Focused CFP-Level Analysis & Personalized Recommendations**")
+
+# Load API key from secrets
+client = OpenAI(
+    api_key=st.secrets["api"]["xai_api_key"],
+    base_url="https://api.x.ai/v1"
+)
 
 with st.sidebar:
     st.header("Personal Details")
@@ -46,7 +53,7 @@ with st.sidebar:
     ss_claim_age = st.selectbox("Claim Social Security at Age", [62, 67, 70], index=1)
     ss_monthly_benefit = st.number_input("Estimated Monthly SS Benefit at FRA ($)", min_value=0, value=2500, step=100)
     
-    num_simulations = st.slider("Number of Monte Carlo Simulations", 1000, 8000, 2000, step=500)
+    num_simulations = st.slider("Number of Monte Carlo Simulations", 1000, 8000, 1500, step=500)
 
 if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
     with st.spinner(f"Running {num_simulations:,} simulations..."):
@@ -67,7 +74,6 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
             bal_re = float(re_value)
             bal_pm = float(pm_value)
             
-            # Accumulation
             for _ in range(years_to_retire):
                 ret_equity = np.random.normal(equity_return, equity_vol)
                 ret_pm = np.random.normal(pm_return, pm_vol)
@@ -78,7 +84,6 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
                 bal_re = bal_re * (1 + re_appreciation) + re_rental_income
                 bal_pm = bal_pm * (1 + ret_pm)
             
-            # Withdrawal phase
             current_spending = float(annual_spending_goal)
             ss_annual = float(ss_monthly_benefit * 12)
             success = True
@@ -90,7 +95,7 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
                     wd = current_spending
                 elif withdrawal_strategy == "4% Rule Variant":
                     wd = annual_spending_goal * 0.04 * (1 + inflation_rate) ** yr
-                else:  # Guardrails
+                else:
                     wd = current_spending
                     total_balance = bal_taxable + bal_trad + bal_roth + bal_re + bal_pm
                     if total_balance < annual_spending_goal * 20:
@@ -139,11 +144,19 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
         success_rate = (success_count / num_simulations) * 100
         median_final = np.median(final_balances) if final_balances else 0
         
-        # Key metrics for recommendations
-        total_current = taxable_current + trad_current + roth_current + re_value + pm_value
-        re_pct = round((re_value / total_current * 100), 1) if total_current > 0 else 0
-        trad_pct = round((trad_current / total_current * 100), 1) if total_current > 0 else 0
-        roth_pct = round((roth_current / total_current * 100), 1) if total_current > 0 else 0
+        # Store results in session state for chatbot
+        st.session_state.simulation_results = {
+            "success_rate": success_rate,
+            "median_final": median_final,
+            "desired_retirement_age": desired_retirement_age,
+            "annual_spending_goal": annual_spending_goal,
+            "withdrawal_strategy": withdrawal_strategy,
+            "ss_claim_age": ss_claim_age,
+            "trad_current": trad_current,
+            "re_value": re_value,
+            "re_pct": round((re_value / (taxable_current + trad_current + roth_current + re_value + pm_value) * 100), 1) if (taxable_current + trad_current + roth_current + re_value + pm_value) > 0 else 0,
+            "federal_tax_rate": federal_tax_rate
+        }
         
         st.success("✅ Simulation Complete")
         
@@ -156,49 +169,75 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
             st.metric("Median Final Balance", f"${median_final:,.0f}")
 
         st.subheader("📋 CFP Analysis & Personalized Recommendations")
-        st.markdown(f"**Your Goal**: Retire at age **{desired_retirement_age}** with **${annual_spending_goal:,.0f}** in today's dollars (inflation-adjusted), using **{withdrawal_strategy}** and claiming SS at age **{ss_claim_age}**.")
-        
+        st.markdown(f"**Goal**: Retire at age **{desired_retirement_age}** with **${annual_spending_goal:,.0f}** in today's dollars.")
+
         if success_rate >= 80:
-            st.success("✅ **Strong Plan** — High likelihood of success under conservative assumptions.")
-            st.markdown("**Recommended Actions:**")
-            st.markdown("- Maintain current contribution levels and asset allocation.")
+            st.success("✅ Strong probability of success.")
+            st.markdown("- Maintain current path and prioritize Roth contributions.")
             if ss_claim_age < 70:
-                st.markdown("- **Delay Social Security to age 70** — this is one of the highest-impact moves available.")
-            if trad_pct > 40:
-                st.markdown("- Begin small **Roth conversions** over the next 5–10 years while in a lower tax bracket.")
-            st.markdown("- Continue maximizing any employer 401(k) match.")
-        
+                st.markdown("- Consider delaying Social Security to age 70.")
         elif success_rate >= 60:
-            st.warning("⚠️ **Moderate Success Probability** — Plan is workable but has room for improvement.")
-            st.markdown("**Recommended Actions Right Now:**")
-            st.markdown(f"- Increase total annual contributions by **$8,000–$15,000** (prioritize Roth accounts).")
-            if trad_pct > 40:
-                st.markdown("- Start a **Roth conversion ladder** — this can reduce future Missouri and federal tax drag.")
-            if re_pct > 30:
-                st.markdown(f"- Your real estate exposure ({re_pct}%) is notable — consider diversification or 1031 exchange planning.")
-            if ss_claim_age < 70:
-                st.markdown("- Delaying Social Security to 70 would meaningfully boost success rate.")
-        
+            st.warning("⚠️ Moderate success probability.")
+            st.markdown("- Increase Roth contributions.")
+            st.markdown("- Consider Roth conversion ladder.")
         else:
-            st.error("❌ **Low Success Probability** — Material changes are needed to comfortably retire at your target age.")
-            st.markdown("**Priority Actions Right Now:**")
-            st.markdown(f"- **Lower your annual spending goal** by $10,000–$20,000 or delay retirement by 3–5 years.")
-            st.markdown(f"- **Aggressively increase contributions** — target an additional **$15,000–$25,000** per year (heavily to Roth).")
-            st.markdown("- Begin **Roth conversions** as soon as possible to lower future taxable income.")
-            if re_pct > 35:
-                st.markdown(f"- Real estate makes up {re_pct}% of your portfolio — evaluate liquidity and diversification options.")
-            st.markdown("- Consider part-time work or consulting income during the first 5–10 years of retirement.")
-        
+            st.error("❌ Low success probability.")
+            st.markdown("- Lower spending goal or increase contributions significantly.")
+            st.markdown("- Consider delaying retirement.")
+
         st.subheader("Missouri + Federal Tax Notes")
-        st.markdown(f"""
-        - Traditional withdrawals taxed at combined ~**{federal_tax_rate + 4.7}%** (federal + Missouri).
-        - Roth withdrawals are completely tax-free.
-        - Social Security benefits are **not taxed** in Missouri.
-        """)
-        
-        st.caption("This is educational modeling with reasonable tax assumptions. Always consult a licensed CFP and tax professional for your specific situation.")
+        st.markdown(f"- Traditional withdrawals taxed at ~**{federal_tax_rate + 4.7}%** combined.")
+        st.markdown("- Roth withdrawals are tax-free.")
+        st.markdown("- Social Security is not taxed in Missouri.")
 
-else:
-    st.info("👆 Enter your information and click the button above for detailed CFP-level recommendations.")
+# ==================== GROK CHATBOT ====================
+st.subheader("💬 Ask Grok (Your CFP Assistant)")
+st.caption("Ask questions about your plan, Roth conversions, real estate strategy, etc.")
 
-st.caption("Missouri-focused retirement planning tool | GitHub: russellrichards55-lang/cfp-retirement-agent")
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+
+for message in st.session_state.chat_history:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+if prompt := st.chat_input("Ask about your retirement plan..."):
+    st.session_state.chat_history.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
+
+    with st.chat_message("assistant"):
+        with st.spinner("Thinking..."):
+            # Build context from simulation
+            context = f"""
+            User inputs:
+            - Current age: {current_age}, Desired retirement age: {desired_retirement_age}, Life expectancy: {life_expectancy}
+            - Spending goal: ${annual_spending_goal:,} today's dollars
+            - Success rate: {success_rate:.1f}%
+            - Median final balance: ${median_final:,.0f}
+            - Withdrawal strategy: {withdrawal_strategy}
+            - SS claiming age: {ss_claim_age}
+            - Traditional balance: ${trad_current:,.0f}
+            - Real estate value: ${re_value:,.0f} ({st.session_state.simulation_results.get('re_pct', 0)}% of portfolio)
+            - Federal tax rate assumption: {federal_tax_rate}%
+            
+            Please give practical, CFP-style advice based on this data.
+            """
+
+            try:
+                response = client.chat.completions.create(
+                    model="grok-3",
+                    messages=[
+                        {"role": "system", "content": "You are a knowledgeable, conservative CFP (Certified Financial Planner) providing fiduciary-style advice. Be clear, actionable, and conservative. Always prioritize tax efficiency and risk management."},
+                        {"role": "user", "content": context + "\n\nUser question: " + prompt}
+                    ],
+                    temperature=0.7,
+                    max_tokens=800
+                )
+                answer = response.choices[0].message.content
+                st.markdown(answer)
+                st.session_state.chat_history.append({"role": "assistant", "content": answer})
+            except Exception as e:
+                st.error(f"Chatbot error: {str(e)}")
+
+st.caption("The chatbot has access to your simulation results and can give personalized advice. The Grok API is used.")
