@@ -15,7 +15,7 @@ try:
     chatbot_available = True
 except Exception:
     chatbot_available = False
-    st.sidebar.warning("💡 Chatbot not active. Make sure your xAI API key is correctly set in Streamlit Secrets.")
+    st.sidebar.warning("💡 Chatbot not active. Make sure your xAI API key is set in Streamlit Secrets.")
 
 with st.sidebar:
     st.header("Personal Details")
@@ -159,7 +159,8 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
             "ss_claim_age": ss_claim_age,
             "trad_current": trad_current,
             "re_value": re_value,
-            "federal_tax_rate": federal_tax_rate
+            "federal_tax_rate": federal_tax_rate,
+            "re_pct": round((re_value / (taxable_current + trad_current + roth_current + re_value + pm_value) * 100), 1) if (taxable_current + trad_current + roth_current + re_value + pm_value) > 0 else 0
         }
         
         st.success("✅ Simulation Complete")
@@ -187,9 +188,9 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
         st.markdown("- Roth withdrawals are tax-free.")
         st.markdown("- Social Security is not taxed in Missouri.")
 
-# ==================== GROK CHATBOT ====================
+# ==================== IMPROVED GROK CHATBOT ====================
 st.subheader("💬 Ask Grok - Your Personal CFP Assistant")
-st.caption("Run a simulation first, then ask questions about your plan.")
+st.caption("Run a simulation first, then ask questions about your plan, Roth conversions, real estate, taxes, etc.")
 
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
@@ -211,25 +212,31 @@ if prompt := st.chat_input("Ask about your retirement plan..."):
                 try:
                     results = st.session_state.get("simulation_results", {})
                     context = f"""
-                    Latest simulation results:
-                    - Success Rate: {results.get('success_rate', 'N/A'):.1f}%
-                    - Median Final Balance: ${results.get('median_final', 0):,.0f}
-                    - Desired Retirement Age: {results.get('desired_retirement_age', 'N/A')}
-                    - Annual Spending Goal: ${results.get('annual_spending_goal', 0):,.0f}
-                    - Withdrawal Strategy: {results.get('withdrawal_strategy', 'N/A')}
-                    - SS Claim Age: {results.get('ss_claim_age', 'N/A')}
-                    - Traditional Balance: ${results.get('trad_current', 0):,.0f}
-                    - Real Estate Value: ${results.get('re_value', 0):,.0f}
-                    """
+You are reviewing a client's retirement plan. Here are the key facts:
+
+- Current age: {current_age}
+- Desired retirement age: {results.get('desired_retirement_age')}
+- Life expectancy: {life_expectancy}
+- Annual spending goal: ${results.get('annual_spending_goal'):,.0f} in today's dollars
+- Success rate from Monte Carlo: {results.get('success_rate'):.1f}%
+- Median final balance: ${results.get('median_final'):,.0f}
+- Withdrawal strategy: {results.get('withdrawal_strategy')}
+- Social Security claiming age: {results.get('ss_claim_age')}
+- Traditional IRA/401(k) balance: ${results.get('trad_current'):,.0f}
+- Real estate value: ${results.get('re_value'):,.0f} ({results.get('re_pct', 0)}% of total portfolio)
+- Assumed federal tax rate on Traditional withdrawals: {results.get('federal_tax_rate')}% 
+
+Provide clear, conservative, actionable CFP-style advice. Be direct, prioritize tax efficiency, risk management, and sequence of returns risk. Suggest specific next steps with rough priorities or dollar amounts where helpful.
+"""
 
                     response = client.chat.completions.create(
-                        model="grok-3",                    # ← This is the correct current model
+                        model="grok-3",
                         messages=[
-                            {"role": "system", "content": "You are a conservative, fiduciary CFP giving practical, honest, actionable advice."},
-                            {"role": "user", "content": context + "\n\nUser question: " + prompt}
+                            {"role": "system", "content": context},
+                            {"role": "user", "content": prompt}
                         ],
                         temperature=0.7,
-                        max_tokens=800
+                        max_tokens=900
                     )
                     answer = response.choices[0].message.content
                     st.markdown(answer)
@@ -237,4 +244,4 @@ if prompt := st.chat_input("Ask about your retirement plan..."):
                 except Exception as e:
                     st.error(f"Error calling Grok: {str(e)}")
 
-st.caption("The chatbot has full context of your latest simulation.")
+st.caption("The chatbot has full context of your latest simulation results and gives CFP-style advice.")
