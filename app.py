@@ -1,16 +1,21 @@
 import streamlit as st
 import numpy as np
-from openai import OpenAI
 
 st.set_page_config(page_title="Rusty’s CFP Retirement Agent", layout="wide", page_icon="📈")
 st.title("Rusty’s CFP Retirement Planning Agent")
 st.markdown("**Missouri-Focused CFP-Level Analysis & Personalized Recommendations**")
 
-# Load API key from secrets
-client = OpenAI(
-    api_key=st.secrets["api"]["xai_api_key"],
-    base_url="https://api.x.ai/v1"
-)
+# Try to load Grok API client
+try:
+    from openai import OpenAI
+    client = OpenAI(
+        api_key=st.secrets["api"]["xai_api_key"],
+        base_url="https://api.x.ai/v1"
+    )
+    chatbot_available = True
+except Exception as e:
+    chatbot_available = False
+    st.sidebar.warning("Chatbot not available yet. Please set up your xAI API key in Streamlit Secrets.")
 
 with st.sidebar:
     st.header("Personal Details")
@@ -56,6 +61,7 @@ with st.sidebar:
     num_simulations = st.slider("Number of Monte Carlo Simulations", 1000, 8000, 1500, step=500)
 
 if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
+    # ... (simulation code remains the same as previous stable version) ...
     with st.spinner(f"Running {num_simulations:,} simulations..."):
         np.random.seed(42)
         
@@ -144,7 +150,7 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
         success_rate = (success_count / num_simulations) * 100
         median_final = np.median(final_balances) if final_balances else 0
         
-        # Store results in session state for chatbot
+        # Store results for chatbot
         st.session_state.simulation_results = {
             "success_rate": success_rate,
             "median_final": median_final,
@@ -154,7 +160,6 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
             "ss_claim_age": ss_claim_age,
             "trad_current": trad_current,
             "re_value": re_value,
-            "re_pct": round((re_value / (taxable_current + trad_current + roth_current + re_value + pm_value) * 100), 1) if (taxable_current + trad_current + roth_current + re_value + pm_value) > 0 else 0,
             "federal_tax_rate": federal_tax_rate
         }
         
@@ -173,26 +178,19 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
 
         if success_rate >= 80:
             st.success("✅ Strong probability of success.")
-            st.markdown("- Maintain current path and prioritize Roth contributions.")
-            if ss_claim_age < 70:
-                st.markdown("- Consider delaying Social Security to age 70.")
         elif success_rate >= 60:
             st.warning("⚠️ Moderate success probability.")
-            st.markdown("- Increase Roth contributions.")
-            st.markdown("- Consider Roth conversion ladder.")
         else:
             st.error("❌ Low success probability.")
-            st.markdown("- Lower spending goal or increase contributions significantly.")
-            st.markdown("- Consider delaying retirement.")
 
         st.subheader("Missouri + Federal Tax Notes")
         st.markdown(f"- Traditional withdrawals taxed at ~**{federal_tax_rate + 4.7}%** combined.")
         st.markdown("- Roth withdrawals are tax-free.")
         st.markdown("- Social Security is not taxed in Missouri.")
 
-# ==================== GROK CHATBOT ====================
-st.subheader("💬 Ask Grok (Your CFP Assistant)")
-st.caption("Ask questions about your plan, Roth conversions, real estate strategy, etc.")
+# ==================== GROK CHATBOT SECTION ====================
+st.subheader("💬 Ask Grok - Your Personal CFP Assistant")
+st.caption("Ask questions about your plan, Roth conversions, real estate, taxes, etc.")
 
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
@@ -202,42 +200,41 @@ for message in st.session_state.chat_history:
         st.markdown(message["content"])
 
 if prompt := st.chat_input("Ask about your retirement plan..."):
-    st.session_state.chat_history.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
+    if not chatbot_available:
+        st.error("Chatbot is not configured yet. Please add your xAI API key in Streamlit Secrets.")
+    else:
+        st.session_state.chat_history.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
 
-    with st.chat_message("assistant"):
-        with st.spinner("Thinking..."):
-            # Build context from simulation
-            context = f"""
-            User inputs:
-            - Current age: {current_age}, Desired retirement age: {desired_retirement_age}, Life expectancy: {life_expectancy}
-            - Spending goal: ${annual_spending_goal:,} today's dollars
-            - Success rate: {success_rate:.1f}%
-            - Median final balance: ${median_final:,.0f}
-            - Withdrawal strategy: {withdrawal_strategy}
-            - SS claiming age: {ss_claim_age}
-            - Traditional balance: ${trad_current:,.0f}
-            - Real estate value: ${re_value:,.0f} ({st.session_state.simulation_results.get('re_pct', 0)}% of portfolio)
-            - Federal tax rate assumption: {federal_tax_rate}%
-            
-            Please give practical, CFP-style advice based on this data.
-            """
+        with st.chat_message("assistant"):
+            with st.spinner("Grok is thinking..."):
+                try:
+                    context = f"""
+                    Current simulation results:
+                    - Success Rate: {success_rate:.1f}%
+                    - Median Final Balance: ${median_final:,.0f}
+                    - Desired Retirement Age: {desired_retirement_age}
+                    - Annual Spending Goal: ${annual_spending_goal:,.0f}
+                    - Withdrawal Strategy: {withdrawal_strategy}
+                    - SS Claim Age: {ss_claim_age}
+                    - Traditional Balance: ${trad_current:,.0f}
+                    - Real Estate Value: ${re_value:,.0f}
+                    """
 
-            try:
-                response = client.chat.completions.create(
-                    model="grok-3",
-                    messages=[
-                        {"role": "system", "content": "You are a knowledgeable, conservative CFP (Certified Financial Planner) providing fiduciary-style advice. Be clear, actionable, and conservative. Always prioritize tax efficiency and risk management."},
-                        {"role": "user", "content": context + "\n\nUser question: " + prompt}
-                    ],
-                    temperature=0.7,
-                    max_tokens=800
-                )
-                answer = response.choices[0].message.content
-                st.markdown(answer)
-                st.session_state.chat_history.append({"role": "assistant", "content": answer})
-            except Exception as e:
-                st.error(f"Chatbot error: {str(e)}")
+                    response = client.chat.completions.create(
+                        model="grok-beta",
+                        messages=[
+                            {"role": "system", "content": "You are a conservative, fiduciary CFP giving practical, actionable advice. Be direct and honest."},
+                            {"role": "user", "content": context + "\n\nQuestion: " + prompt}
+                        ],
+                        temperature=0.7,
+                        max_tokens=800
+                    )
+                    answer = response.choices[0].message.content
+                    st.markdown(answer)
+                    st.session_state.chat_history.append({"role": "assistant", "content": answer})
+                except Exception as e:
+                    st.error(f"Error calling Grok: {str(e)}")
 
-st.caption("The chatbot has access to your simulation results and can give personalized advice. The Grok API is used.")
+st.caption("The chatbot has full context of your simulation results.")
