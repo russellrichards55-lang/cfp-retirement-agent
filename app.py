@@ -49,7 +49,7 @@ with st.sidebar:
     num_simulations = st.slider("Number of Monte Carlo Simulations", 1000, 8000, 2000, step=500)
 
 if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
-    with st.spinner(f"Running {num_simulations:,} simulations with tax modeling..."):
+    with st.spinner(f"Running {num_simulations:,} simulations..."):
         np.random.seed(42)
         
         years_to_retire = desired_retirement_age - current_age
@@ -58,7 +58,7 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
         success_count = 0
         final_balances = []
         
-        combined_tax_rate = (federal_tax_rate / 100.0) + 0.047  # Missouri top rate
+        combined_tax_rate = (federal_tax_rate / 100.0) + 0.047
         
         for _ in range(num_simulations):
             bal_taxable = float(taxable_current)
@@ -139,10 +139,11 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
         success_rate = (success_count / num_simulations) * 100
         median_final = np.median(final_balances) if final_balances else 0
         
-        # Total portfolio value for recommendations
+        # Key metrics for recommendations
         total_current = taxable_current + trad_current + roth_current + re_value + pm_value
-        re_percentage = (re_value / total_current * 100) if total_current > 0 else 0
-        trad_percentage = (trad_current / total_current * 100) if total_current > 0 else 0
+        re_pct = round((re_value / total_current * 100), 1) if total_current > 0 else 0
+        trad_pct = round((trad_current / total_current * 100), 1) if total_current > 0 else 0
+        roth_pct = round((roth_current / total_current * 100), 1) if total_current > 0 else 0
         
         st.success("✅ Simulation Complete")
         
@@ -155,48 +156,49 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
             st.metric("Median Final Balance", f"${median_final:,.0f}")
 
         st.subheader("📋 CFP Analysis & Personalized Recommendations")
-        st.markdown(f"**Goal**: Retire at **{desired_retirement_age}** with **${annual_spending_goal:,.0f}** today's dollars (inflation-adjusted), using **{withdrawal_strategy}** and SS at age **{ss_claim_age}**.")
+        st.markdown(f"**Your Goal**: Retire at age **{desired_retirement_age}** with **${annual_spending_goal:,.0f}** in today's dollars (inflation-adjusted), using **{withdrawal_strategy}** and claiming SS at age **{ss_claim_age}**.")
         
         if success_rate >= 80:
             st.success("✅ **Strong Plan** — High likelihood of success under conservative assumptions.")
             st.markdown("**Recommended Actions:**")
-            st.markdown("- Continue current contribution strategy.")
-            st.markdown("- Prioritize new contributions to Roth accounts.")
+            st.markdown("- Maintain current contribution levels and asset allocation.")
             if ss_claim_age < 70:
-                st.markdown("- Strongly consider delaying Social Security to age 70 — it significantly reduces portfolio drawdown.")
-            if trad_percentage > 40:
-                st.markdown("- Begin planning a **Roth conversion ladder** over the next 5–10 years while in a lower tax bracket.")
+                st.markdown("- **Delay Social Security to age 70** — this is one of the highest-impact moves available.")
+            if trad_pct > 40:
+                st.markdown("- Begin small **Roth conversions** over the next 5–10 years while in a lower tax bracket.")
+            st.markdown("- Continue maximizing any employer 401(k) match.")
         
         elif success_rate >= 60:
-            st.warning("⚠️ **Moderate Success Probability** — Plan is viable but has risks.")
+            st.warning("⚠️ **Moderate Success Probability** — Plan is workable but has room for improvement.")
             st.markdown("**Recommended Actions Right Now:**")
-            st.markdown("- Increase total annual contributions by **$8,000–$15,000** (focus heavily on Roth).")
-            st.markdown("- Begin small Roth conversions if your current tax bracket is lower than expected in retirement.")
-            if re_percentage > 30:
-                st.markdown("- Real estate concentration is notable — consider diversification or 1031 exchange planning.")
+            st.markdown(f"- Increase total annual contributions by **$8,000–$15,000** (prioritize Roth accounts).")
+            if trad_pct > 40:
+                st.markdown("- Start a **Roth conversion ladder** — this can reduce future Missouri and federal tax drag.")
+            if re_pct > 30:
+                st.markdown(f"- Your real estate exposure ({re_pct}%) is notable — consider diversification or 1031 exchange planning.")
             if ss_claim_age < 70:
-                st.markdown("- Delaying Social Security to 70 would meaningfully improve success rate.")
+                st.markdown("- Delaying Social Security to 70 would meaningfully boost success rate.")
         
         else:
-            st.error("❌ **Low Success Probability** — Material changes are needed to retire at your target age.")
+            st.error("❌ **Low Success Probability** — Material changes are needed to comfortably retire at your target age.")
             st.markdown("**Priority Actions Right Now:**")
-            st.markdown("- **Reduce spending goal** by $10,000–$20,000 annually or delay retirement by 2–5 years.")
-            st.markdown("- **Aggressively increase contributions** (target +$15,000+ per year, prioritize Roth).")
-            st.markdown("- Start a **Roth conversion ladder** immediately to reduce future taxable income.")
-            st.markdown("- Evaluate selling or refinancing real estate to free up liquidity if needed.")
-            st.markdown("- Consider part-time work or consulting income in early retirement years.")
+            st.markdown(f"- **Lower your annual spending goal** by $10,000–$20,000 or delay retirement by 3–5 years.")
+            st.markdown(f"- **Aggressively increase contributions** — target an additional **$15,000–$25,000** per year (heavily to Roth).")
+            st.markdown("- Begin **Roth conversions** as soon as possible to lower future taxable income.")
+            if re_pct > 35:
+                st.markdown(f"- Real estate makes up {re_pct}% of your portfolio — evaluate liquidity and diversification options.")
+            st.markdown("- Consider part-time work or consulting income during the first 5–10 years of retirement.")
         
         st.subheader("Missouri + Federal Tax Notes")
         st.markdown(f"""
-        - Traditional withdrawals taxed at combined **{federal_tax_rate}% federal + 4.7% Missouri**.
+        - Traditional withdrawals taxed at combined ~**{federal_tax_rate + 4.7}%** (federal + Missouri).
         - Roth withdrawals are completely tax-free.
         - Social Security benefits are **not taxed** in Missouri.
-        - Real estate and precious metals have their own tax considerations (capital gains / collectibles rates).
         """)
         
-        st.caption("This is educational modeling with reasonable assumptions. Tax laws change. Always consult a licensed CFP and tax professional for your specific situation in Missouri.")
+        st.caption("This is educational modeling with reasonable tax assumptions. Always consult a licensed CFP and tax professional for your specific situation.")
 
 else:
-    st.info("👆 Enter your information and click the button above for CFP-level analysis.")
+    st.info("👆 Enter your information and click the button above for detailed CFP-level recommendations.")
 
 st.caption("Missouri-focused retirement planning tool | GitHub: russellrichards55-lang/cfp-retirement-agent")
