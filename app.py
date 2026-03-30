@@ -3,7 +3,7 @@ import numpy as np
 
 st.set_page_config(page_title="Rusty’s CFP Retirement Agent", layout="wide", page_icon="📈")
 st.title("Rusty’s CFP Retirement Planning Agent")
-st.markdown("**Missouri-Focused CFP-Level Analysis & Recommendations** — Taxes Included")
+st.markdown("**Missouri-Focused CFP-Level Analysis & Personalized Recommendations**")
 
 with st.sidebar:
     st.header("Personal Details")
@@ -36,13 +36,10 @@ with st.sidebar:
     inflation_rate = st.slider("Inflation Rate (%)", 1.0, 5.0, 3.0) / 100.0
     
     st.subheader("Retirement Spending")
-    annual_spending_goal = st.number_input("Desired Annual Spending in Today's Dollars ($)", 
-                                           min_value=20_000, value=60_000, step=5_000)
+    annual_spending_goal = st.number_input("Desired Annual Spending in Today's Dollars ($)", min_value=20_000, value=60_000, step=5_000)
     
-    st.subheader("Tax Assumptions (CFP-Level)")
-    federal_tax_rate = st.slider("Assumed Effective Federal Tax Rate on Traditional Withdrawals (%)", 
-                                 0, 37, 22)
-    missouri_tax_rate = 4.7 / 100.0   # Fixed top marginal rate
+    st.subheader("Tax Assumptions")
+    federal_tax_rate = st.slider("Assumed Effective Federal Tax Rate on Traditional Withdrawals (%)", 0, 37, 22)
     
     st.subheader("Strategies")
     withdrawal_strategy = st.selectbox("Withdrawal Strategy", ["Fixed Real Spending", "4% Rule Variant", "Guardrails"])
@@ -61,7 +58,7 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
         success_count = 0
         final_balances = []
         
-        combined_tax_rate = federal_tax_rate / 100.0 + missouri_tax_rate
+        combined_tax_rate = (federal_tax_rate / 100.0) + 0.047  # Missouri top rate
         
         for _ in range(num_simulations):
             bal_taxable = float(taxable_current)
@@ -81,7 +78,7 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
                 bal_re = bal_re * (1 + re_appreciation) + re_rental_income
                 bal_pm = bal_pm * (1 + ret_pm)
             
-            # Withdrawal phase with taxes
+            # Withdrawal phase
             current_spending = float(annual_spending_goal)
             ss_annual = float(ss_monthly_benefit * 12)
             success = True
@@ -111,14 +108,12 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
                     success = False
                     break
                 
-                # Proportional withdrawal
                 w_taxable = wd * (bal_taxable / total)
                 w_trad = wd * (bal_trad / total)
                 w_roth = wd * (bal_roth / total)
                 w_re = wd * (bal_re / total)
                 w_pm = wd * (bal_pm / total)
                 
-                # Apply taxes on Traditional portion only
                 trad_after_tax = w_trad * (1 - combined_tax_rate)
                 
                 bal_taxable -= w_taxable
@@ -144,7 +139,11 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
         success_rate = (success_count / num_simulations) * 100
         median_final = np.median(final_balances) if final_balances else 0
         
-        # Results
+        # Total portfolio value for recommendations
+        total_current = taxable_current + trad_current + roth_current + re_value + pm_value
+        re_percentage = (re_value / total_current * 100) if total_current > 0 else 0
+        trad_percentage = (trad_current / total_current * 100) if total_current > 0 else 0
+        
         st.success("✅ Simulation Complete")
         
         col1, col2, col3 = st.columns(3)
@@ -155,28 +154,49 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
         with col3:
             st.metric("Median Final Balance", f"${median_final:,.0f}")
 
-        st.subheader("📋 CFP Analysis & Recommendations")
-        st.markdown(f"**Goal**: Retire at age **{desired_retirement_age}** with **${annual_spending_goal:,.0f}** in today's dollars (inflation-adjusted).")
-        st.markdown(f"**Tax Assumption**: {federal_tax_rate}% federal + 4.7% Missouri on Traditional withdrawals.")
+        st.subheader("📋 CFP Analysis & Personalized Recommendations")
+        st.markdown(f"**Goal**: Retire at **{desired_retirement_age}** with **${annual_spending_goal:,.0f}** today's dollars (inflation-adjusted), using **{withdrawal_strategy}** and SS at age **{ss_claim_age}**.")
         
         if success_rate >= 80:
-            st.success("✅ Strong probability of success.")
+            st.success("✅ **Strong Plan** — High likelihood of success under conservative assumptions.")
+            st.markdown("**Recommended Actions:**")
+            st.markdown("- Continue current contribution strategy.")
+            st.markdown("- Prioritize new contributions to Roth accounts.")
+            if ss_claim_age < 70:
+                st.markdown("- Strongly consider delaying Social Security to age 70 — it significantly reduces portfolio drawdown.")
+            if trad_percentage > 40:
+                st.markdown("- Begin planning a **Roth conversion ladder** over the next 5–10 years while in a lower tax bracket.")
+        
         elif success_rate >= 60:
-            st.warning("⚠️ Moderate success probability.")
+            st.warning("⚠️ **Moderate Success Probability** — Plan is viable but has risks.")
+            st.markdown("**Recommended Actions Right Now:**")
+            st.markdown("- Increase total annual contributions by **$8,000–$15,000** (focus heavily on Roth).")
+            st.markdown("- Begin small Roth conversions if your current tax bracket is lower than expected in retirement.")
+            if re_percentage > 30:
+                st.markdown("- Real estate concentration is notable — consider diversification or 1031 exchange planning.")
+            if ss_claim_age < 70:
+                st.markdown("- Delaying Social Security to 70 would meaningfully improve success rate.")
+        
         else:
-            st.error("❌ Low success probability — adjustments needed.")
+            st.error("❌ **Low Success Probability** — Material changes are needed to retire at your target age.")
+            st.markdown("**Priority Actions Right Now:**")
+            st.markdown("- **Reduce spending goal** by $10,000–$20,000 annually or delay retirement by 2–5 years.")
+            st.markdown("- **Aggressively increase contributions** (target +$15,000+ per year, prioritize Roth).")
+            st.markdown("- Start a **Roth conversion ladder** immediately to reduce future taxable income.")
+            st.markdown("- Evaluate selling or refinancing real estate to free up liquidity if needed.")
+            st.markdown("- Consider part-time work or consulting income in early retirement years.")
         
         st.subheader("Missouri + Federal Tax Notes")
         st.markdown(f"""
-        - **Traditional IRA/401(k)**: Taxed at combined ~{federal_tax_rate + 4.7}% (federal + Missouri)
-        - **Roth IRA/401(k)**: Completely tax-free
-        - **Social Security**: Not taxed in Missouri
-        - **Taxable Brokerage**: Capital gains rates apply (not modeled in detail here)
+        - Traditional withdrawals taxed at combined **{federal_tax_rate}% federal + 4.7% Missouri**.
+        - Roth withdrawals are completely tax-free.
+        - Social Security benefits are **not taxed** in Missouri.
+        - Real estate and precious metals have their own tax considerations (capital gains / collectibles rates).
         """)
         
-        st.caption("Educational modeling with reasonable tax assumptions. Always consult a licensed CFP and tax professional for your specific situation.")
+        st.caption("This is educational modeling with reasonable assumptions. Tax laws change. Always consult a licensed CFP and tax professional for your specific situation in Missouri.")
 
 else:
-    st.info("👆 Enter your information and click the button above.")
+    st.info("👆 Enter your information and click the button above for CFP-level analysis.")
 
 st.caption("Missouri-focused retirement planning tool | GitHub: russellrichards55-lang/cfp-retirement-agent")
