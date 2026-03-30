@@ -230,7 +230,8 @@ You are reviewing a client's retirement plan. Here are the key facts:
 - Real estate value: ${results.get('re_value'):,.0f} ({results.get('re_pct', 0)}% of portfolio)
 - Assumed federal tax rate on Traditional withdrawals: {results.get('federal_tax_rate')}% 
 
-Provide clear, conservative, actionable CFP-style advice. Be direct, prioritize tax efficiency, risk management, and sequence of returns risk. Suggest specific next steps.
+Provide clear, conservative, actionable CFP-style advice. Be direct, prioritize tax efficiency, risk management, and sequence of returns risk. 
+Use bullet points for recommendations. Keep responses well-structured but concise. Avoid overly long step-by-step math unless specifically asked.
 """
 
                     response = client.chat.completions.create(
@@ -240,7 +241,7 @@ Provide clear, conservative, actionable CFP-style advice. Be direct, prioritize 
                             {"role": "user", "content": prompt}
                         ],
                         temperature=0.7,
-                        max_tokens=900
+                        max_tokens=1200
                     )
                     answer = response.choices[0].message.content
                     st.markdown(answer)
