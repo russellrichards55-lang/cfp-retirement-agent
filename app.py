@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 
 st.set_page_config(page_title="Rusty’s CFP Retirement Agent", layout="wide", page_icon="📈")
 st.title("Rusty’s CFP Retirement Planning Agent")
-st.markdown("**Missouri-Focused Analysis & Recommendations** — Safe Drawdown Chart")
+st.markdown("**Missouri-Focused Analysis & Recommendations** — Stable Version")
 
 # Sidebar inputs
 with st.sidebar:
@@ -53,17 +53,16 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
         
         years_to_retire = desired_retirement_age - current_age
         years_in_retirement = life_expectancy - desired_retirement_age
-        total_years = years_to_retire + years_in_retirement + 1
         
         success_count = 0
         all_paths = []
         
         for _ in range(num_simulations):
-            bal_taxable = taxable_current
-            bal_trad = trad_current
-            bal_roth = roth_current
-            bal_re = re_value
-            bal_pm = pm_value
+            bal_taxable = float(taxable_current)
+            bal_trad = float(trad_current)
+            bal_roth = float(roth_current)
+            bal_re = float(re_value)
+            bal_pm = float(pm_value)
             
             path = [bal_taxable + bal_trad + bal_roth + bal_re + bal_pm]
             
@@ -81,8 +80,8 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
                 path.append(bal_taxable + bal_trad + bal_roth + bal_re + bal_pm)
             
             # Withdrawal phase
-            current_spending = annual_spending_goal
-            ss_annual = ss_monthly_benefit * 12
+            current_spending = float(annual_spending_goal)
+            ss_annual = float(ss_monthly_benefit * 12)
             success = True
             
             for yr in range(years_in_retirement):
@@ -109,7 +108,6 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
                     success = False
                     break
                 
-                # Proportional withdrawal
                 w_taxable = wd * (bal_taxable / total)
                 w_trad = wd * (bal_trad / total)
                 w_roth = wd * (bal_roth / total)
@@ -122,7 +120,6 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
                 bal_re -= w_re
                 bal_pm -= w_pm
                 
-                # Growth
                 ret_equity = np.random.normal(equity_return, equity_vol)
                 ret_pm = np.random.normal(pm_return, pm_vol)
                 bal_taxable *= (1 + ret_equity)
@@ -143,14 +140,12 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
         
         success_rate = (success_count / num_simulations) * 100
         
-        # Safe median path calculation
+        # Safe handling for median path
         if all_paths:
             median_path = np.median(all_paths, axis=0)
         else:
-            median_path = np.zeros(total_years)
-            st.error("⚠️ All simulations failed. Your spending goal is likely too high relative to your assets and contributions.")
-        
-        ages = list(range(current_age, current_age + len(median_path)))
+            median_path = np.zeros(years_to_retire + years_in_retirement + 1)
+            st.error("⚠️ All simulations failed. Your spending goal is likely too high for current assets and contributions. Try lowering spending or increasing savings/contributions.")
         
         # Results
         st.success("✅ Simulation Complete")
@@ -163,37 +158,18 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
         with col3:
             st.metric("Target Retirement Age", desired_retirement_age)
         
-        # Drawdown Chart - Post Retirement
-        st.subheader("Net Worth Drawdown Chart (Retirement Onward)")
-        fig_drawdown = go.Figure()
-        fig_drawdown.add_trace(go.Scatter(
-            x=ages[years_to_retire:],
-            y=median_path[years_to_retire:],
-            mode='lines+markers',
-            name='Median Net Worth',
-            line=dict(color='blue', width=3)
-        ))
-        fig_drawdown.update_layout(
-            title="Portfolio Net Worth Over Time (Post-Retirement)",
-            xaxis_title="Age",
-            yaxis_title="Net Worth ($)",
-            template="plotly_white",
-            hovermode="x unified"
-        )
-        st.plotly_chart(fig_drawdown, width="stretch")
-        
         st.subheader("📋 CFP Analysis & Recommendations")
         if success_rate < 30:
-            st.error("Your current spending goal appears too aggressive.")
-            st.markdown("**Suggestions:** Lower annual spending, increase contributions, delay retirement, or reduce spending in early retirement years.")
+            st.error("Spending goal appears too aggressive.")
+            st.markdown("**Immediate Recommendations:** Lower annual spending, increase contributions significantly, delay retirement, or reduce spending in early retirement years.")
         elif success_rate >= 80:
             st.success("Strong probability of success with your chosen strategies.")
         else:
             st.warning("Moderate success probability — consider small adjustments.")
         
-        st.caption("Educational modeling only. Always consult a licensed CFP and tax professional for personalized advice.")
+        st.caption("Educational modeling only. Consult a licensed CFP and tax professional.")
 
 else:
-    st.info("👆 Enter your information and click the button above to run the analysis.")
+    st.info("👆 Enter your information and click the button above.")
 
 st.caption("Missouri-focused retirement planning tool | GitHub: russellrichards55-lang/cfp-retirement-agent")
