@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 
 st.set_page_config(page_title="Rusty’s CFP Retirement Agent", layout="wide", page_icon="📈")
 st.title("Rusty’s CFP Retirement Planning Agent")
-st.markdown("**Missouri-Focused Analysis & Recommendations** — Now Includes Real Estate & Precious Metals")
+st.markdown("**Missouri-Focused Analysis & Recommendations** — Withdrawal + Social Security Strategies Added")
 
 # Sidebar inputs
 with st.sidebar:
@@ -34,7 +34,7 @@ with st.sidebar:
     pm_return = st.slider("Expected Annual Return (%)", 0.0, 10.0, 4.0) / 100.0
     pm_vol = st.slider("Precious Metals Volatility (%)", 5.0, 30.0, 18.0) / 100.0
     
-    st.subheader("Return & Inflation Assumptions")
+    st.subheader("Assumptions")
     equity_return = st.slider("Equity Expected Real Return (%)", 0.0, 12.0, 5.5) / 100.0
     equity_vol = st.slider("Equity Volatility (%)", 5.0, 25.0, 15.0) / 100.0
     inflation_rate = st.slider("Inflation Rate (%)", 1.0, 5.0, 3.0) / 100.0
@@ -42,11 +42,21 @@ with st.sidebar:
     st.subheader("Retirement Spending Goal")
     annual_spending_goal = st.number_input("Desired Annual Spending in Today's Dollars ($)", min_value=20_000, value=60_000, step=5_000)
     
+    st.subheader("Withdrawal Strategy")
+    withdrawal_strategy = st.selectbox(
+        "Choose Withdrawal Strategy",
+        ["Fixed Real Spending", "4% Rule Variant", "Guardrails"]
+    )
+    
+    st.subheader("Social Security Strategy")
+    ss_claim_age = st.selectbox("Claim Social Security at Age", [62, 67, 70], index=1)
+    ss_monthly_benefit = st.number_input("Estimated Monthly SS Benefit at Full Retirement Age ($)", min_value=0, value=2500, step=100)
+    
     num_simulations = st.slider("Number of Monte Carlo Simulations", 1000, 8000, 2500, step=500)
 
 # Main simulation
 if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
-    with st.spinner(f"Running {num_simulations:,} lifetime simulations..."):
+    with st.spinner(f"Running {num_simulations:,} lifetime simulations with chosen strategies..."):
         np.random.seed(42)
         
         years_to_retire = desired_retirement_age - current_age
@@ -76,27 +86,45 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
                 bal_pm = bal_pm * (1 + ret_pm)
                 balance = bal_taxable + bal_trad + bal_roth + bal_re + bal_pm
             
-            # Withdrawal phase
+            # Withdrawal phase with chosen strategy + SS
             current_spending = annual_spending_goal
+            ss_annual = ss_monthly_benefit * 12
             success = True
-            for _ in range(years_in_retirement):
-                current_spending *= (1 + inflation_rate)
-                ret_equity = np.random.normal(equity_return, equity_vol)
-                ret_pm = np.random.normal(pm_return, pm_vol)
+            
+            for year_in_ret in range(years_in_retirement):
+                current_age_in_ret = desired_retirement_age + year_in_ret
                 
-                # Proportional withdrawal
+                # Apply chosen withdrawal strategy
+                if withdrawal_strategy == "Fixed Real Spending":
+                    withdrawal_needed = current_spending
+                elif withdrawal_strategy == "4% Rule Variant":
+                    withdrawal_needed = annual_spending_goal * 0.04 * (1 + inflation_rate) ** year_in_ret
+                else:  # Guardrails (simple version)
+                    withdrawal_needed = current_spending
+                    if balance < annual_spending_goal * 20:   # bad year
+                        withdrawal_needed *= 0.8
+                    elif balance > annual_spending_goal * 30:  # good year
+                        withdrawal_needed *= 1.1
+                
+                # Social Security offset
+                if current_age_in_ret >= ss_claim_age:
+                    withdrawal_needed = max(0, withdrawal_needed - ss_annual)
+                
+                current_spending *= (1 + inflation_rate)
+                
+                # Proportional withdrawal from portfolio
                 total = bal_taxable + bal_trad + bal_roth + bal_re + bal_pm
                 if total <= 0:
                     success = False
                     break
                 
-                w_taxable = current_spending * (bal_taxable / total)
-                w_trad = current_spending * (bal_trad / total)
-                w_roth = current_spending * (bal_roth / total)
-                w_re = current_spending * (bal_re / total)
-                w_pm = current_spending * (bal_pm / total)
+                w_taxable = withdrawal_needed * (bal_taxable / total)
+                w_trad = withdrawal_needed * (bal_trad / total)
+                w_roth = withdrawal_needed * (bal_roth / total)
+                w_re = withdrawal_needed * (bal_re / total)
+                w_pm = withdrawal_needed * (bal_pm / total)
                 
-                # Missouri tax on Traditional (~4.7% conservative)
+                # Missouri tax drag on Traditional
                 trad_after_tax = w_trad * (1 - 0.047)
                 
                 bal_taxable -= w_taxable
@@ -105,7 +133,9 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
                 bal_re -= w_re
                 bal_pm -= w_pm
                 
-                # Grow remaining
+                # Grow remaining balances
+                ret_equity = np.random.normal(equity_return, equity_vol)
+                ret_pm = np.random.normal(pm_return, pm_vol)
                 bal_taxable *= (1 + ret_equity)
                 bal_trad *= (1 + ret_equity)
                 bal_roth *= (1 + ret_equity)
@@ -123,7 +153,7 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
         success_rate = (success_count / num_simulations) * 100
         median_final = np.median(final_balances)
         
-        # Recommendations logic
+        # Display Results
         st.success("✅ Full Lifetime Simulation Complete")
         
         col1, col2, col3 = st.columns(3)
@@ -135,35 +165,36 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
             st.metric("Target Retirement Age", f"{desired_retirement_age}")
         
         st.subheader("📋 CFP Analysis & Recommendations")
-        st.markdown(f"**Goal**: Retire at **{desired_retirement_age}** with **${annual_spending_goal:,.0f}** annual spending (today’s dollars).")
+        st.markdown(f"**Goal**: Retire at **{desired_retirement_age}** with **${annual_spending_goal:,.0f}** annual spending using **{withdrawal_strategy}** and claiming SS at **age {ss_claim_age}**.")
         
         if success_rate >= 80:
-            st.success("✅ Strong plan — continue current path.")
+            st.success("✅ Strong plan")
         elif success_rate >= 60:
-            st.warning("⚠️ Moderate success probability — consider small adjustments.")
+            st.warning("⚠️ Moderate success probability")
         else:
-            st.error("❌ Plan needs strengthening — action recommended now.")
+            st.error("❌ Plan needs strengthening")
         
-        st.markdown("**Recommended Actions Right Now (to hit age-60 retirement):**")
-        st.markdown("- Prioritize **Roth contributions** and consider a **Roth conversion ladder** if in a lower tax bracket.")
-        if re_value > 0:
-            st.markdown("- Real estate rental income is a strong inflation hedge — consider 1031 exchange on sale for tax deferral.")
-        if pm_value > 0:
-            st.markdown("- Precious metals provide diversification — maintain as 5–15% of portfolio for inflation protection.")
-        st.markdown("- Maximize any employer match and review tax-loss harvesting in taxable brokerage.")
-        st.markdown("- Re-run with different spending or delayed retirement if success rate is low.")
+        st.markdown("**Recommended Actions Right Now:**")
+        if ss_claim_age < 70:
+            st.markdown("- **Delay Social Security to age 70** if possible — each year delayed increases your benefit ~8% and reduces portfolio withdrawals.")
+        if withdrawal_strategy == "Guardrails":
+            st.markdown("- Guardrails strategy is working well for volatility protection.")
+        if trad_current > 0 and current_age < 59.5:
+            st.markdown("- Consider a **Roth conversion ladder** now to reduce future Missouri ordinary income tax drag.")
+        st.markdown("- Prioritize Roth contributions and review real estate/rental income for tax efficiency.")
         
         st.subheader("Missouri Tax Notes")
         st.markdown("""
-        - **Real Estate**: Property taxes apply; capital gains on sale are federally taxable (Missouri has no state capital gains tax on primary residence with exclusions).
-        - **Precious Metals**: Treated as collectibles — 28% federal long-term capital gains rate.
+        - **Real Estate**: Property taxes apply; capital gains on sale federally taxable (Missouri exemption on primary residence).
+        - **Precious Metals**: Treated as collectibles (28% federal long-term capital gains rate).
         - **Traditional**: Ordinary income tax (up to 4.7% Missouri).
         - **Roth**: Tax-free qualified withdrawals.
+        - **Social Security**: Missouri does not tax Social Security benefits.
         """)
         
-        st.caption("Educational modeling only. Consult a licensed CFP and tax professional for your situation.")
+        st.caption("Educational modeling only. Consult a licensed CFP and tax professional.")
 
 else:
-    st.info("👆 Enter all your numbers (including real estate & precious metals) in the sidebar, then click the button.")
+    st.info("👆 Enter all your numbers and choose withdrawal + Social Security strategies in the sidebar, then click the button.")
 
 st.caption("Missouri-focused retirement planning tool | GitHub: russellrichards55-lang/cfp-retirement-agent")
