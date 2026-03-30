@@ -13,9 +13,9 @@ try:
         base_url="https://api.x.ai/v1"
     )
     chatbot_available = True
-except:
+except Exception:
     chatbot_available = False
-    st.sidebar.warning("💡 Chatbot not active yet. Make sure your xAI API key is set in Streamlit Secrets.")
+    st.sidebar.warning("💡 Chatbot not active. Make sure your xAI API key is correctly set in Streamlit Secrets.")
 
 with st.sidebar:
     st.header("Personal Details")
@@ -149,7 +149,7 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
         success_rate = (success_count / num_simulations) * 100
         median_final = np.median(final_balances) if final_balances else 0
         
-        # Store results in session state for the chatbot
+        # Store results for chatbot
         st.session_state.simulation_results = {
             "success_rate": success_rate,
             "median_final": median_final,
@@ -189,7 +189,7 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
 
 # ==================== GROK CHATBOT ====================
 st.subheader("💬 Ask Grok - Your Personal CFP Assistant")
-st.caption("The chatbot can see your latest simulation results.")
+st.caption("Run a simulation first, then ask questions about your plan.")
 
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
@@ -223,9 +223,9 @@ if prompt := st.chat_input("Ask about your retirement plan..."):
                     """
 
                     response = client.chat.completions.create(
-                        model="grok-beta",
+                        model="grok-3",                    # ← This is the correct current model
                         messages=[
-                            {"role": "system", "content": "You are a conservative, fiduciary CFP. Give practical, actionable, honest advice based on the user's data."},
+                            {"role": "system", "content": "You are a conservative, fiduciary CFP giving practical, honest, actionable advice."},
                             {"role": "user", "content": context + "\n\nUser question: " + prompt}
                         ],
                         temperature=0.7,
@@ -237,4 +237,4 @@ if prompt := st.chat_input("Ask about your retirement plan..."):
                 except Exception as e:
                     st.error(f"Error calling Grok: {str(e)}")
 
-st.caption("Run a simulation first, then ask Grok questions about your plan.")
+st.caption("The chatbot has full context of your latest simulation.")
