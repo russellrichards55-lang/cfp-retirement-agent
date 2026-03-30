@@ -54,6 +54,7 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
         years_in_retirement = life_expectancy - desired_retirement_age
         
         success_count = 0
+        final_balances = []
         
         for _ in range(num_simulations):
             bal_taxable = float(taxable_current)
@@ -76,7 +77,6 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
             # Withdrawal phase
             current_spending = float(annual_spending_goal)
             ss_annual = float(ss_monthly_benefit * 12)
-            success = True
             
             for yr in range(years_in_retirement):
                 current_age_in_ret = desired_retirement_age + yr
@@ -100,7 +100,6 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
                 
                 total = bal_taxable + bal_trad + bal_roth + bal_re + bal_pm
                 if total <= 0:
-                    success = False
                     break
                 
                 w_taxable = wd * (bal_taxable / total)
@@ -122,15 +121,15 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
                 bal_roth *= (1 + ret_equity)
                 bal_re *= (1 + re_appreciation)
                 bal_pm *= (1 + ret_pm)
-                
-                if bal_taxable + bal_trad + bal_roth + bal_re + bal_pm < 0:
-                    success = False
-                    break
             
-            if success:
+            final_balance = bal_taxable + bal_trad + bal_roth + bal_re + bal_pm
+            final_balances.append(final_balance)
+            
+            if final_balance >= 0:
                 success_count += 1
         
         success_rate = (success_count / num_simulations) * 100
+        median_final = np.median(final_balances) if final_balances else 0
         
         # Results
         st.success("✅ Simulation Complete")
@@ -141,48 +140,44 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
         with col2:
             st.metric("Target Retirement Age", desired_retirement_age)
         with col3:
-            st.metric("Estimated Final Balance", "N/A (high spending scenario)")
+            st.metric("Median Final Balance", f"${median_final:,.0f}")
 
         st.subheader("📋 CFP Analysis & Recommendations")
         
-        st.markdown(f"**Your Goal**: Retire at age **{desired_retirement_age}** with **${annual_spending_goal:,.0f}** annual spending using **{withdrawal_strategy}** and claiming Social Security at age **{ss_claim_age}**.")
-        
+        st.markdown(f"**Goal**: Retire at age **{desired_retirement_age}** with **${annual_spending_goal:,.0f}** annual spending.")
+
         if success_rate >= 80:
-            st.success("✅ **Strong Plan** — Your current path has a high likelihood of success.")
-            st.markdown("- Continue current contribution levels.")
-            st.markdown("- Consider accelerating Roth contributions for tax-free growth.")
+            st.success("✅ Strong probability of success.")
+            st.markdown("- Your plan looks solid with current contributions and strategies.")
             if ss_claim_age < 70:
                 st.markdown("- Delaying Social Security to age 70 would further strengthen the plan.")
         
         elif success_rate >= 60:
-            st.warning("⚠️ **Moderate Success Probability**")
-            st.markdown("**Recommended Actions Right Now:**")
-            st.markdown("- Increase total annual contributions by $5,000–$10,000 (prioritize Roth)")
-            st.markdown("- Consider a Roth conversion ladder if you are in a lower tax bracket")
-            st.markdown("- Review real estate strategy — rental income is helpful but consider liquidity")
+            st.warning("⚠️ Moderate success probability.")
+            st.markdown("**Recommended Actions:**")
+            st.markdown("- Increase Roth contributions")
+            st.markdown("- Consider Roth conversion ladder")
             if ss_claim_age < 70:
-                st.markdown("- Delaying Social Security to 70 could meaningfully improve outcomes")
+                st.markdown("- Delay Social Security to age 70 to reduce portfolio drawdown")
         
         else:
-            st.error("❌ **Low Success Probability** — Significant changes needed to retire at your target age.")
+            st.error("❌ Low success probability — significant changes needed.")
             st.markdown("**Priority Actions Right Now:**")
-            st.markdown("- **Lower your annual spending goal** significantly (try $45,000–$50,000)")
-            st.markdown("- **Increase contributions aggressively** (especially to Roth)")
+            st.markdown("- **Lower annual spending goal** (try reducing by $10,000–$20,000)")
+            st.markdown("- **Increase annual contributions** aggressively (especially to Roth)")
             st.markdown("- Consider delaying retirement by 2–5 years")
-            st.markdown("- Explore part-time work or downsizing real estate in early retirement")
-            st.markdown("- Roth conversion ladder may help manage future tax burden")
-        
+            st.markdown("- Explore part-time income or downsizing real estate in early retirement")
+
         st.subheader("Missouri Tax Notes")
         st.markdown("""
-        - Social Security benefits are **not taxed** in Missouri (big advantage).
-        - Traditional IRA/401(k) withdrawals are taxed as ordinary income (up to 4.7%).
+        - Social Security is **not taxed** in Missouri.
+        - Traditional withdrawals are taxed as ordinary income (up to 4.7%).
         - Roth withdrawals are completely tax-free.
-        - Real estate rental income is taxable, but capital gains may have favorable treatment.
         """)
         
-        st.caption("This is educational modeling only. Always consult a licensed CFP and tax professional for personalized advice.")
+        st.caption("Educational modeling only. Consult a licensed CFP and tax professional.")
 
 else:
-    st.info("👆 Enter your numbers in the sidebar and click the button above for full analysis and recommendations.")
+    st.info("👆 Enter your information and click the button above.")
 
 st.caption("Missouri-focused retirement planning tool | GitHub: russellrichards55-lang/cfp-retirement-agent")
