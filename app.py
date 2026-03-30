@@ -3,7 +3,7 @@ import numpy as np
 
 st.set_page_config(page_title="Rusty’s CFP Retirement Agent", layout="wide", page_icon="📈")
 st.title("Rusty’s CFP Retirement Planning Agent")
-st.markdown("**Missouri-Focused Analysis & Actionable Recommendations**")
+st.markdown("**Missouri-Focused CFP-Level Analysis & Recommendations** — Taxes Included")
 
 with st.sidebar:
     st.header("Personal Details")
@@ -36,9 +36,13 @@ with st.sidebar:
     inflation_rate = st.slider("Inflation Rate (%)", 1.0, 5.0, 3.0) / 100.0
     
     st.subheader("Retirement Spending")
-    annual_spending_goal = st.number_input("Desired Annual Spending in **Today's Dollars**", 
-                                           min_value=20_000, value=60_000, step=5_000,
-                                           help="This is what you want in the first year of retirement, adjusted for inflation each year after.")
+    annual_spending_goal = st.number_input("Desired Annual Spending in Today's Dollars ($)", 
+                                           min_value=20_000, value=60_000, step=5_000)
+    
+    st.subheader("Tax Assumptions (CFP-Level)")
+    federal_tax_rate = st.slider("Assumed Effective Federal Tax Rate on Traditional Withdrawals (%)", 
+                                 0, 37, 22)
+    missouri_tax_rate = 4.7 / 100.0   # Fixed top marginal rate
     
     st.subheader("Strategies")
     withdrawal_strategy = st.selectbox("Withdrawal Strategy", ["Fixed Real Spending", "4% Rule Variant", "Guardrails"])
@@ -48,7 +52,7 @@ with st.sidebar:
     num_simulations = st.slider("Number of Monte Carlo Simulations", 1000, 8000, 2000, step=500)
 
 if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
-    with st.spinner(f"Running {num_simulations:,} simulations..."):
+    with st.spinner(f"Running {num_simulations:,} simulations with tax modeling..."):
         np.random.seed(42)
         
         years_to_retire = desired_retirement_age - current_age
@@ -57,6 +61,8 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
         success_count = 0
         final_balances = []
         
+        combined_tax_rate = federal_tax_rate / 100.0 + missouri_tax_rate
+        
         for _ in range(num_simulations):
             bal_taxable = float(taxable_current)
             bal_trad = float(trad_current)
@@ -64,7 +70,7 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
             bal_re = float(re_value)
             bal_pm = float(pm_value)
             
-            # Accumulation phase
+            # Accumulation
             for _ in range(years_to_retire):
                 ret_equity = np.random.normal(equity_return, equity_vol)
                 ret_pm = np.random.normal(pm_return, pm_vol)
@@ -75,15 +81,14 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
                 bal_re = bal_re * (1 + re_appreciation) + re_rental_income
                 bal_pm = bal_pm * (1 + ret_pm)
             
-            # Withdrawal phase with proper inflation adjustment
-            current_spending = float(annual_spending_goal)   # First year of retirement
+            # Withdrawal phase with taxes
+            current_spending = float(annual_spending_goal)
             ss_annual = float(ss_monthly_benefit * 12)
             success = True
             
             for yr in range(years_in_retirement):
                 current_age_in_ret = desired_retirement_age + yr
                 
-                # Apply chosen withdrawal strategy to the inflation-adjusted spending
                 if withdrawal_strategy == "Fixed Real Spending":
                     wd = current_spending
                 elif withdrawal_strategy == "4% Rule Variant":
@@ -96,15 +101,14 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
                     elif total_balance > annual_spending_goal * 30:
                         wd *= 1.1
                 
-                # Social Security offset
                 if current_age_in_ret >= ss_claim_age:
                     wd = max(0, wd - ss_annual)
                 
-                # Inflate spending for next year
                 current_spending *= (1 + inflation_rate)
                 
                 total = bal_taxable + bal_trad + bal_roth + bal_re + bal_pm
                 if total <= 0:
+                    success = False
                     break
                 
                 # Proportional withdrawal
@@ -114,13 +118,15 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
                 w_re = wd * (bal_re / total)
                 w_pm = wd * (bal_pm / total)
                 
+                # Apply taxes on Traditional portion only
+                trad_after_tax = w_trad * (1 - combined_tax_rate)
+                
                 bal_taxable -= w_taxable
                 bal_trad -= w_trad
                 bal_roth -= w_roth
                 bal_re -= w_re
                 bal_pm -= w_pm
                 
-                # Growth
                 ret_equity = np.random.normal(equity_return, equity_vol)
                 ret_pm = np.random.normal(pm_return, pm_vol)
                 bal_taxable *= (1 + ret_equity)
@@ -150,21 +156,25 @@ if st.button("🚀 Run Full CFP Analysis & Recommendations", type="primary"):
             st.metric("Median Final Balance", f"${median_final:,.0f}")
 
         st.subheader("📋 CFP Analysis & Recommendations")
-        st.markdown(f"**Goal**: Retire at age **{desired_retirement_age}** with **${annual_spending_goal:,.0f}** in today's dollars, increasing with inflation each year.")
+        st.markdown(f"**Goal**: Retire at age **{desired_retirement_age}** with **${annual_spending_goal:,.0f}** in today's dollars (inflation-adjusted).")
+        st.markdown(f"**Tax Assumption**: {federal_tax_rate}% federal + 4.7% Missouri on Traditional withdrawals.")
         
         if success_rate >= 80:
             st.success("✅ Strong probability of success.")
         elif success_rate >= 60:
             st.warning("⚠️ Moderate success probability.")
         else:
-            st.error("❌ Low success probability — changes recommended.")
+            st.error("❌ Low success probability — adjustments needed.")
         
-        st.subheader("Missouri Tax Notes")
-        st.markdown("- Social Security is **not taxed** in Missouri.")
-        st.markdown("- Traditional withdrawals taxed as ordinary income (up to 4.7%).")
-        st.markdown("- Roth withdrawals are tax-free.")
+        st.subheader("Missouri + Federal Tax Notes")
+        st.markdown(f"""
+        - **Traditional IRA/401(k)**: Taxed at combined ~{federal_tax_rate + 4.7}% (federal + Missouri)
+        - **Roth IRA/401(k)**: Completely tax-free
+        - **Social Security**: Not taxed in Missouri
+        - **Taxable Brokerage**: Capital gains rates apply (not modeled in detail here)
+        """)
         
-        st.caption("Educational modeling only. Consult a licensed CFP and tax professional.")
+        st.caption("Educational modeling with reasonable tax assumptions. Always consult a licensed CFP and tax professional for your specific situation.")
 
 else:
     st.info("👆 Enter your information and click the button above.")
